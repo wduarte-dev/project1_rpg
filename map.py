@@ -1,6 +1,7 @@
 from random import randint
 from rich import print
 from dataclasses import dataclass, field
+from player import Player
 
 @dataclass
 class Map:
@@ -18,7 +19,7 @@ class Map:
         self.map_matrix[0][-1] = 'P'
     
     def draw_entities(self):
-        self.map_matrix[-1][0] = 'J'
+        self.map_matrix[self.y_len - 1][0] = 'J'
 
     def generate_chests(self, quantity):
         for generation in range(quantity):
