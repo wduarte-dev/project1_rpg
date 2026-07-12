@@ -1,10 +1,10 @@
-from dataclasses import dataclass
 from entity import Entity
 
-@dataclass
 class Player(Entity):
-    x_pos : int
-    y_pos : int
+    def __init__(self, y_len):
+        self.y_len : int = 0
+        self.x_pos : int = 0
+        self.y_pos : int = y_len - 1
 
     def move(self, command, x_max, y_max):
         match command:
