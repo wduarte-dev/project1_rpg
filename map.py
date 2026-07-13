@@ -10,6 +10,8 @@ class Map:
     y_len : int = field(default=0, init=False)
     chest_with_key_coordinates : list = field(default_factory=lambda:['Not generated'], init=False)
     map_matrix : list = field(default_factory=lambda:['Not generated'], init=False)
+    level : int = field(default=0, init=False)
+    generate_next_level : bool = field(default=False, init=False)
 
     def clear_terminal(self):
         system('cls' if name == 'nt' else 'clear')
@@ -25,7 +27,7 @@ class Map:
     def draw_player(self, player_obj):
         cmd = input('> ').lower()
         old_x, old_y = player_obj.x_pos, player_obj.y_pos
-        player_obj.move(cmd, self.x_len, self.y_len)
+        player_obj.move(cmd)
         self.map_matrix[old_y][old_x] = '.'
         if [player_obj.x_pos, player_obj.y_pos] == self.chest_with_key_coordinates:
             player_obj.has_key = True
@@ -48,21 +50,45 @@ class Map:
     
     def show_map(self):
         for y in self.map_matrix:
-            print(' '.join(y)) 
+            print(' '.join(y))
+            
+    def header_text(self, player_obj):
+        if player_obj.has_key:
+            print('HAS KEY? ( ) NO [blue](x) YES[/]')
+        else:
+            print('HAS KEY? [red](x) NO[/] ( ) YES')
+        if player_obj.can_next_level == 1:
+            self.clear_terminal()
+            print('[blue]Congrats.[/]\nPress ENTER to CONTINUE.')
+            self.generate_next_level = True
+        if player_obj.can_next_level == 2 and not player_obj.has_key:
+            print('[red]FIND THE KEY FIRST.[/]')
+
+    def footer_text(self):
+        print(f'LEVEL {self.level}')
 
     def renderize(self):
-        self.randomize_geometry()
-        self.generate()
-        print('Press ENTER to START')
-        p1 = Player(self.y_len)
         while True:
-            self.draw_entities(p1)
-            self.clear_terminal()
-            if p1.has_key:
-                print('HAS KEY? ( ) NO [blue](x) YES[/]')
+            self.randomize_geometry()
+            self.generate()
+            if self.level == 0:
+                print('Press ENTER to START')
+                p1 = Player(self.x_len, self.y_len)
             else:
-                print('HAS KEY? [red](x) NO[/] ( ) YES')
-            self.show_map()
+                p1.level_restart(self.x_len, self.y_len) 
+
+            while True:
+                self.draw_entities(p1)
+                self.clear_terminal()
+                self.header_text(p1)
+                if self.generate_next_level:
+                    self.level += 1
+                    self.generate_next_level = False
+                    p1.has_key = False
+                    break
+                self.show_map()
+                self.footer_text()
+
 
 def main():
     map1 = Map()

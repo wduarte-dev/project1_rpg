@@ -6,5 +6,5 @@ class Entity(ABC):
     y_pos : int
 
     @abstractmethod
-    def move(self, command, x_max, y_max) -> None:
+    def move(self, command) -> None:
         pass
