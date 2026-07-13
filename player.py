@@ -5,6 +5,7 @@ class Player(Entity):
         self.y_len : int = 0
         self.x_pos : int = 0
         self.y_pos : int = y_len - 1
+        self.has_key = False
 
     def move(self, command, x_max, y_max):
         match command:
