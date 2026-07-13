@@ -40,7 +40,7 @@ class Map:
     def generate_chests(self, quantity) -> tuple | None:
         for generation in range(quantity):
             key_on_chest = False
-            x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1)
+            x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 4) # chest can only generate 2 lines or more above player
             while self.map_matrix[y_gen][x_gen] != '.':
                 x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1)  
             self.map_matrix[y_gen][x_gen] = 'C'
@@ -74,7 +74,7 @@ class Map:
             if self.level == 0:
                 print('Press ENTER to START')
                 p1 = Player(self.x_len, self.y_len)
-            else:
+            elif self.level != 0:
                 p1.level_restart(self.x_len, self.y_len) 
 
             while True:
