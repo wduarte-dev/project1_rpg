@@ -7,8 +7,8 @@ import sys
 
 if name == 'nt': 
     import msvcrt
-    def get_key():
-        return msvcrt.getch().decode('utf-8', errors='ignore').lower()
+    def get_key(): #type:ignore
+        return msvcrt.getch().decode('utf-8', errors='ignore').lower() #type:ignore
 else: 
     import tty, termios
     def get_key():

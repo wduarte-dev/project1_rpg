@@ -1,0 +1,6 @@
+14/jul/2026
+- Added flood fill system to only generate levels possible to pass
+- Improved map renderizer (now renderize the full map before print to user, without line by line)
+- Getch system (user now can make actions without pressin ENTER)
+- Collisions / obstacles
+- Grass generation in map (only design purpose)
