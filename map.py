@@ -1,4 +1,6 @@
-from random import randint
+# zerar lista de coordenadas de bau quando o player passar de level
+
+from random import randint, choice
 from rich import print
 from os import system, name
 from dataclasses import dataclass, field
@@ -9,6 +11,7 @@ class Map:
     x_len : int = field(default=0, init=False)
     y_len : int = field(default=0, init=False)
     chest_with_key_coordinates : list = field(default_factory=lambda:['Not generated'], init=False)
+    chests_generations_coordinates : list = field(default_factory=lambda:['Not generated'], init=False) 
     map_matrix : list = field(default_factory=lambda:['Not generated'], init=False)
     level : int = field(default=0, init=False)
     generate_next_level : bool = field(default=False, init=False)
@@ -23,6 +26,7 @@ class Map:
         self.map_matrix = [['.' for _ in range(self.x_len)] for _ in range(self.y_len)]
         self.map_matrix[0][-1] = 'P'
         self.generate_chests(3)
+        self.generate_obstacles_in_chests()
     
     def draw_player(self, player_obj):
         cmd = input('> ').lower()
@@ -32,8 +36,7 @@ class Map:
         if [player_obj.x_pos, player_obj.y_pos] == self.chest_with_key_coordinates:
             player_obj.has_key = True
         self.map_matrix[player_obj.y_pos][player_obj.x_pos] = 'J'
-
-    
+  
     def draw_entities(self, player_obj):
         self.draw_player(player_obj)
 
@@ -42,12 +45,35 @@ class Map:
             key_on_chest = False
             x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 4) # chest can only generate 2 lines or more above player
             while self.map_matrix[y_gen][x_gen] != '.':
-                x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1)  
+                x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1) 
+            if 'Not generated' in self.chests_generations_coordinates:
+                self.chests_generations_coordinates = []
+            self.chests_generations_coordinates.append([x_gen, y_gen]) 
             self.map_matrix[y_gen][x_gen] = 'C'
             if not key_on_chest:
                 key_on_chest = True
                 self.chest_with_key_coordinates = [x_gen, y_gen]
-    
+
+    def generate_obstacles_in_chests(self):
+        for chest_coordinates in self.chests_generations_coordinates:
+            x_chest, y_chest = chest_coordinates[0], chest_coordinates[1]
+            neighbors_xy = [
+                (-1, -1),(0, -1),(1, -1),
+                (-1,  0),        (1,  0),
+                (-1,  1),(0,  1),(1,  1)
+            ]
+            entries = [neighbors_xy[1], neighbors_xy[3], neighbors_xy[4], neighbors_xy[6]]
+            chest_entry = choice(entries)
+            neighbors_xy.remove(chest_entry)
+            for dx, dy in neighbors_xy:
+                x_obstacle, y_obstacle = x_chest + dx, y_chest + dy
+                try:
+                    if self.map_matrix[y_obstacle][x_obstacle] == '.' and x_obstacle != -1 and y_obstacle != -1:
+                        self.map_matrix[y_obstacle][x_obstacle] = '#'
+                except IndexError:
+                    pass
+
+
     def show_map(self):
         for y in self.map_matrix:
             print(' '.join(y))
@@ -83,6 +109,7 @@ class Map:
                 self.header_text(p1)
                 if self.generate_next_level:
                     self.level += 1
+                    self.chests_generations_coordinates = []
                     self.generate_next_level = False
                     p1.has_key = False
                     break
