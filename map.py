@@ -1,5 +1,3 @@
-# zerar lista de coordenadas de bau quando o player passar de level
-
 from random import randint, choice
 from rich import print
 from os import system, name
@@ -22,11 +20,17 @@ class Map:
     def randomize_geometry(self):
         self.x_len, self.y_len = randint(10, 15), randint(10, 15)
   
-    def generate(self):
-        self.map_matrix = [['.' for _ in range(self.x_len)] for _ in range(self.y_len)]
-        self.map_matrix[0][-1] = 'P'
-        self.generate_chests(3)
-        self.generate_obstacles_in_chests()
+    def generate(self, player_obj):
+        while True:
+            self.chests_generations_coordinates = []
+            self.chest_with_key_coordinates = []
+            self.map_matrix = [['.' for _ in range(self.x_len)] for _ in range(self.y_len)]
+            self.map_matrix[0][-1] = 'P'
+            self.generate_chests(3)
+            self.generate_obstacles_in_chests()
+            if self.is_map_solvable(player_obj):
+                break
+            continue
     
     def draw_player(self, player_obj):
         cmd = input('> ').lower()
@@ -72,6 +76,34 @@ class Map:
                         self.map_matrix[y_obstacle][x_obstacle] = '#'
                 except IndexError:
                     pass
+    
+    def is_map_solvable(self, player_obj):
+        queue = [(player_obj.x_pos, player_obj.y_pos)]
+        visited = []
+        while queue:
+            curr_x, curr_y = queue[0]
+            queue.pop(0)
+            if (curr_x, curr_y) in visited:
+                continue
+            visited.append((curr_x, curr_y))
+            directions = [
+                   (0, -1),
+            (-1, 0),     (1,  0),
+                   (0,  1)
+            ]
+            for dx, dy in directions:
+                new_x, new_y = curr_x + dx, curr_y + dy
+                if 0 <= new_x < self.x_len and 0 <= new_y < self.y_len:
+                    if self.map_matrix[new_y][new_x] != '#' and (new_x, new_y) not in visited:
+                        queue.append((new_x, new_y))
+        if (self.x_len - 1, 0) in visited:
+            for x_chest, y_chest in self.chests_generations_coordinates:
+                if (x_chest, y_chest) in visited:
+                    continue
+                else:
+                    return False
+            return True
+        return False
 
 
     def show_map(self):
@@ -96,20 +128,18 @@ class Map:
     def renderize(self):
         while True:
             self.randomize_geometry()
-            self.generate()
             if self.level == 0:
                 print('Press ENTER to START')
                 p1 = Player(self.x_len, self.y_len)
             elif self.level != 0:
                 p1.level_restart(self.x_len, self.y_len) 
-
+            self.generate(p1)
             while True:
                 self.draw_entities(p1)
                 self.clear_terminal()
                 self.header_text(p1)
                 if self.generate_next_level:
                     self.level += 1
-                    self.chests_generations_coordinates = []
                     self.generate_next_level = False
                     p1.has_key = False
                     break
