@@ -3,6 +3,23 @@ from rich import print
 from os import system, name
 from dataclasses import dataclass, field
 from player import Player
+import sys
+
+if name == 'nt': 
+    import msvcrt
+    def get_key():
+        return msvcrt.getch().decode('utf-8', errors='ignore').lower()
+else: 
+    import tty, termios
+    def get_key():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(sys.stdin.fileno())
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch.lower()
 
 @dataclass
 class Map:
@@ -33,7 +50,7 @@ class Map:
             continue
     
     def draw_player(self, player_obj):
-        cmd = input('> ').lower()
+        cmd = get_key()
         old_x, old_y = player_obj.x_pos, player_obj.y_pos
         player_obj.move(cmd)
         self.map_matrix[old_y][old_x] = '.'
@@ -117,7 +134,7 @@ class Map:
             print('HAS KEY? [red](x) NO[/] ( ) YES')
         if player_obj.can_next_level == 1:
             self.clear_terminal()
-            print('[blue]Congrats.[/]\nPress ENTER to CONTINUE.')
+            print('[blue]Congrats.[/]\nPress ENTER to CONTINUE.\n> ', end='')
             self.generate_next_level = True
         if player_obj.can_next_level == 2 and not player_obj.has_key:
             print('[red]FIND THE KEY FIRST.[/]')
@@ -129,7 +146,7 @@ class Map:
         while True:
             self.randomize_geometry()
             if self.level == 0:
-                print('Press ENTER to START')
+                print('Press ENTER to START\n> ', end='')
                 p1 = Player(self.x_len, self.y_len)
             elif self.level != 0:
                 p1.level_restart(self.x_len, self.y_len) 
