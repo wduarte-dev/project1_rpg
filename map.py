@@ -35,7 +35,7 @@ class Map:
         system('cls' if name == 'nt' else 'clear')
 
     def randomize_geometry(self):
-        self.x_len, self.y_len = randint(10, 15), randint(10, 15)
+        self.x_len, self.y_len = randint(15, 20), randint(15, 20)
   
     def generate(self, player_obj):
         while True:
@@ -43,7 +43,7 @@ class Map:
             self.chest_with_key_coordinates = []
             self.map_matrix = [['.' for _ in range(self.x_len)] for _ in range(self.y_len)]
             self.map_matrix[0][-1] = 'P'
-            self.generate_chests(3)
+            self.generate_chests(5)
             self.generate_obstacles_in_chests()
             if self.is_map_solvable(player_obj):
                 break
@@ -52,7 +52,12 @@ class Map:
     def draw_player(self, player_obj):
         cmd = get_key()
         old_x, old_y = player_obj.x_pos, player_obj.y_pos
-        player_obj.move(cmd)
+        new_positions_tuple = player_obj.move(cmd)
+        # move verifier
+        new_x_pos, new_y_pos = new_positions_tuple
+        if self.map_matrix[new_y_pos][new_x_pos] == '#':
+            player_obj.x_pos, player_obj.y_pos = old_x, old_y
+        ## end
         self.map_matrix[old_y][old_x] = '.'
         if [player_obj.x_pos, player_obj.y_pos] == self.chest_with_key_coordinates:
             player_obj.has_key = True
@@ -63,8 +68,13 @@ class Map:
 
     def generate_chests(self, quantity) -> tuple | None:
         for generation in range(quantity):
-            key_on_chest = False
-            x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 4) # chest can only generate 2 lines or more above player
+            while True:
+                key_on_chest = False
+                x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len) # chest can only generate 2 lines or more above player
+                # conditions 
+                if (y_gen >= self.y_len - 4) or (y_gen <= 2):
+                    continue
+                break
             while self.map_matrix[y_gen][x_gen] != '.':
                 x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1) 
             if 'Not generated' in self.chests_generations_coordinates:
@@ -124,8 +134,8 @@ class Map:
 
 
     def show_map(self):
-        for y in self.map_matrix:
-            print(' '.join(y))
+        map_str = [' '.join(y) for y in self.map_matrix]
+        print('\n'.join(map_str))
             
     def header_text(self, player_obj):
         if player_obj.has_key:
@@ -146,7 +156,7 @@ class Map:
         while True:
             self.randomize_geometry()
             if self.level == 0:
-                print('Press ENTER to START\n> ', end='')
+                print('Press ENTER to START\nWASD to MOVE, E to EXIT\n> ', end='')
                 p1 = Player(self.x_len, self.y_len)
             elif self.level != 0:
                 p1.level_restart(self.x_len, self.y_len) 

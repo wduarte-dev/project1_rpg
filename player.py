@@ -19,13 +19,16 @@ class Player(Entity):
 
 
     def move(self, command):
+        old_x_pos, old_y_pos = self.x_pos, self.y_pos
         match command:
             case 'w': self.y_pos -= 1 if self.y_pos > 0 else 0
             case 'a': self.x_pos -= 1 if self.x_pos > 0 else 0
             case 's': self.y_pos += 1 if self.y_pos < self.map_y_len - 1 else 0
             case 'd': self.x_pos += 1 if self.x_pos < self.map_x_len - 1 else 0
+            case 'e': exit()
             case _: pass
         self.next_level()
+        return (self.x_pos, self.y_pos)
 
     def next_level(self) -> None:
         if [self.x_pos, self.y_pos] == [self.map_x_len - 1, 0] and self.has_key:
