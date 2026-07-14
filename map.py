@@ -1,4 +1,4 @@
-from random import randint, choice
+from random import randint, choice, choices
 from rich import print
 from os import system, name
 from dataclasses import dataclass, field
@@ -30,12 +30,13 @@ class Map:
     map_matrix : list = field(default_factory=lambda:['Not generated'], init=False)
     level : int = field(default=0, init=False)
     generate_next_level : bool = field(default=False, init=False)
+    grass_coordinates : list = field(default_factory=lambda:['Not generated'], init=False)
 
     def clear_terminal(self):
         system('cls' if name == 'nt' else 'clear')
 
     def randomize_geometry(self):
-        self.x_len, self.y_len = randint(15, 20), randint(15, 20)
+        self.x_len, self.y_len = randint(15, 30), randint(10, 15)
   
     def generate(self, player_obj):
         while True:
@@ -46,6 +47,7 @@ class Map:
             self.generate_chests(5)
             self.generate_obstacles_in_chests()
             if self.is_map_solvable(player_obj):
+                self.generate_grass()
                 break
             continue
     
@@ -58,7 +60,7 @@ class Map:
         if self.map_matrix[new_y_pos][new_x_pos] == '#':
             player_obj.x_pos, player_obj.y_pos = old_x, old_y
         ## end
-        self.map_matrix[old_y][old_x] = '.'
+        self.map_matrix[old_y][old_x] = '[blue].[/]'
         if [player_obj.x_pos, player_obj.y_pos] == self.chest_with_key_coordinates:
             player_obj.has_key = True
         self.map_matrix[player_obj.y_pos][player_obj.x_pos] = 'J'
@@ -132,10 +134,24 @@ class Map:
             return True
         return False
 
+    def generate_grass(self):
+        self.grass_coordinates = []
+        for y in range(self.y_len):
+            for x in range(self.x_len):
+                if self.map_matrix[y][x] == '.' and (x, y) not in self.grass_coordinates:
+                    if randint(0, 100) <= 20:
+                        self.grass_coordinates.append((x, y))
+
 
     def show_map(self):
-        map_str = [' '.join(y) for y in self.map_matrix]
+        map_str = self.map_matrix[:]
+        for y in range(self.y_len):
+            for x in range(self.x_len):
+                if map_str[y][x] == '.' and (x, y) in self.grass_coordinates:
+                    map_str[y][x] = ','
+        map_str = [' '.join(y) for y in map_str]
         print('\n'.join(map_str))
+
             
     def header_text(self, player_obj):
         if player_obj.has_key:
