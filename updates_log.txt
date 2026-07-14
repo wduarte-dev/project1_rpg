@@ -4,3 +4,6 @@
 - Getch system (user now can make actions without pressin ENTER)
 - Collisions / obstacles
 - Grass generation in map (only design purpose)
+- DrunkEnemy Added:
+This enemy movement is random and move independent of the player actions (1 second if the player is idle).
+- More improved map renderizer (now the new map renders on top of the old one, reducing the noticeable flicker in the terminal)

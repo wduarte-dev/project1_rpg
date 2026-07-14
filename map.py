@@ -3,23 +3,36 @@ from rich import print
 from os import system, name
 from dataclasses import dataclass, field
 from player import Player
+from enemy import DrunkEnemy
+from copy import deepcopy
 import sys
 
+import sys
+import time
+timeout = 1
 if name == 'nt': 
     import msvcrt
     def get_key(): #type:ignore
-        return msvcrt.getch().decode('utf-8', errors='ignore').lower() #type:ignore
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            if msvcrt.kbhit(): #type:ignore
+                return msvcrt.getch().decode('utf-8', errors='ignore').lower() #type:ignore
+        return None 
 else: 
-    import tty, termios
+    import tty, termios, select
     def get_key():
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
-            tty.setraw(sys.stdin.fileno())
-            ch = sys.stdin.read(1)
+            tty.setraw(fd)
+            rlist, _, _ = select.select([sys.stdin], [], [], timeout)
+            if rlist:
+                ch = sys.stdin.read(1)
+            else:
+                ch = None
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch.lower()
+        return ch.lower() if ch else None
 
 @dataclass
 class Map:
@@ -31,19 +44,26 @@ class Map:
     level : int = field(default=0, init=False)
     generate_next_level : bool = field(default=False, init=False)
     grass_coordinates : list = field(default_factory=lambda:['Not generated'], init=False)
+    enemy_has_generated : bool = field(default=False, init=False)
 
-    def clear_terminal(self):
-        system('cls' if name == 'nt' else 'clear')
+
+    def clear_terminal(self, mode):
+        if mode == 0:
+            sys.stdout.write('\033[H')
+            sys.stdout.flush()
+        elif mode == 1:
+            system('cls' if name == 'nt' else 'clear')
 
     def randomize_geometry(self):
         self.x_len, self.y_len = randint(15, 30), randint(10, 15)
   
     def generate(self, player_obj):
+        print('Loading...')
         while True:
             self.chests_generations_coordinates = []
             self.chest_with_key_coordinates = []
             self.map_matrix = [['.' for _ in range(self.x_len)] for _ in range(self.y_len)]
-            self.map_matrix[0][-1] = 'P'
+            self.map_matrix[0][-1] = 'D'
             self.generate_chests(5)
             self.generate_obstacles_in_chests()
             if self.is_map_solvable(player_obj):
@@ -63,18 +83,45 @@ class Map:
         self.map_matrix[old_y][old_x] = '[blue].[/]'
         if [player_obj.x_pos, player_obj.y_pos] == self.chest_with_key_coordinates:
             player_obj.has_key = True
-        self.map_matrix[player_obj.y_pos][player_obj.x_pos] = 'J'
-  
-    def draw_entities(self, player_obj):
+        self.map_matrix[player_obj.y_pos][player_obj.x_pos] = '[blue]P[/]'
+
+    def draw_enemy(self, enemy_obj):
+        if enemy_obj is None:
+            return None
+        if not self.enemy_has_generated:
+            while True:
+                x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1)
+                if (y_gen >= self.y_len - 3) and (x_gen <= 5): # this enemy can only generate 2 lines above or more and 6 columns right or more
+                    continue
+                elif self.map_matrix[y_gen][x_gen] != '.':
+                    continue
+                break
+            enemy_obj.x_pos, enemy_obj.y_pos = x_gen, y_gen
+            self.map_matrix[enemy_obj.y_pos][enemy_obj.x_pos] = '[red]E[/]'
+            self.enemy_has_generated = True
+            return None
+        old_x, old_y = enemy_obj.x_pos, enemy_obj.y_pos
+        new_positions_tuple = enemy_obj.move()
+        # move verifier
+        new_x_pos, new_y_pos = new_positions_tuple
+        if '.' not in self.map_matrix[new_y_pos][new_x_pos]:
+            enemy_obj.x_pos, enemy_obj.y_pos = old_x, old_y
+        ## end
+        self.map_matrix[old_y][old_x] = '[red].[/]'
+        self.map_matrix[enemy_obj.y_pos][enemy_obj.x_pos] = '[red]E[/]'
+        
+    def draw_entities(self, player_obj, enemy_obj=None):
         self.draw_player(player_obj)
+        self.draw_enemy(enemy_obj)
+
 
     def generate_chests(self, quantity) -> tuple | None:
         for generation in range(quantity):
             while True:
                 key_on_chest = False
-                x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len) # chest can only generate 2 lines or more above player
+                x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len) # dont need to self.y_len - 1 bc of conditions
                 # conditions 
-                if (y_gen >= self.y_len - 4) or (y_gen <= 2):
+                if (y_gen >= self.y_len - 4) or (y_gen <= 2): # chest can only generate 2 lines or more above player
                     continue
                 break
             while self.map_matrix[y_gen][x_gen] != '.':
@@ -144,7 +191,7 @@ class Map:
 
 
     def show_map(self):
-        map_str = self.map_matrix[:]
+        map_str = deepcopy(self.map_matrix)
         for y in range(self.y_len):
             for x in range(self.x_len):
                 if map_str[y][x] == '.' and (x, y) in self.grass_coordinates:
@@ -159,8 +206,9 @@ class Map:
         else:
             print('HAS KEY? [red](x) NO[/] ( ) YES')
         if player_obj.can_next_level == 1:
-            self.clear_terminal()
+            self.clear_terminal(1)
             print('[blue]Congrats.[/]\nPress ENTER to CONTINUE.\n> ', end='')
+            input()
             self.generate_next_level = True
         if player_obj.can_next_level == 2 and not player_obj.has_key:
             print('[red]FIND THE KEY FIRST.[/]')
@@ -170,21 +218,25 @@ class Map:
 
     def renderize(self):
         while True:
+            system('cls' if name == 'nt' else 'clear')
             self.randomize_geometry()
             if self.level == 0:
-                print('Press ENTER to START\nWASD to MOVE, E to EXIT\n> ', end='')
+                input('Press ENTER to START\nWASD to MOVE, E to EXIT\n> ')
                 p1 = Player(self.x_len, self.y_len)
+                e1 = None
             elif self.level != 0:
                 p1.level_restart(self.x_len, self.y_len) 
+                e1 = DrunkEnemy(self.x_len, self.y_len)
             self.generate(p1)
             while True:
-                self.draw_entities(p1)
-                self.clear_terminal()
+                self.draw_entities(player_obj=p1, enemy_obj=e1)
+                self.clear_terminal(0)
                 self.header_text(p1)
                 if self.generate_next_level:
                     self.level += 1
                     self.generate_next_level = False
                     p1.has_key = False
+                    self.enemy_has_generated = False
                     break
                 self.show_map()
                 self.footer_text()
