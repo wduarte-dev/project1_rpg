@@ -7,3 +7,6 @@
 - DrunkEnemy added with collisions and game over screen:
 This enemy movement is random and move independent of the player actions (1 second if the player is idle).
 - More improved map renderizer (now the new map renders on top of the old one, reducing the noticeable flicker in the terminal)
+
+15/jul/2026
+- More enemies when passing levels (2 enemies limit for now)
