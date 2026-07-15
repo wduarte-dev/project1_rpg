@@ -43,8 +43,8 @@ class Map:
     level : int = field(default=0, init=False)
     generate_next_level : bool = field(default=False, init=False)
     grass_coordinates : list = field(default_factory=lambda:['Not generated'], init=False)
-    enemy_has_generated : bool = field(default=False, init=False)
     player_has_died : bool = field(default=False, init=False)
+    list_of_enemies : list = field(default_factory=lambda:[], init=False)
 
 
     def clear_terminal(self, mode):
@@ -55,6 +55,7 @@ class Map:
             system('cls' if name == 'nt' else 'clear')
 
     def randomize_geometry(self):
+        self.list_of_enemies = [] # coloquei aqui para não instanciar os objetos dos inimigos com o x,y do mapa antigo, e sim do novo.
         self.x_len, self.y_len = randint(15, 30), randint(10, 15)
   
     def generate(self, player_obj):
@@ -91,38 +92,48 @@ class Map:
             player_obj.has_key = True
         self.map_matrix[player_obj.y_pos][player_obj.x_pos] = '[blue]P[/]'
 
-    def draw_enemy(self, enemy_obj):
-        if enemy_obj is None:
-            return None
-        if not self.enemy_has_generated:
-            while True:
-                x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1)
-                if (y_gen >= self.y_len - 3) and (x_gen <= 5): # this enemy can only generate 2 lines above or more and 6 columns right or more
-                    continue
-                elif self.map_matrix[y_gen][x_gen] != '.':
-                    continue
-                break
-            enemy_obj.x_pos, enemy_obj.y_pos = x_gen, y_gen
-            self.map_matrix[enemy_obj.y_pos][enemy_obj.x_pos] = '[red]E[/]'
-            self.enemy_has_generated = True
-            return None
-        old_x, old_y = enemy_obj.x_pos, enemy_obj.y_pos
-        new_positions_tuple = enemy_obj.move()
-        new_x_pos, new_y_pos = new_positions_tuple
-        # move verifier
-        if 'P' in self.map_matrix[new_y_pos][new_x_pos]:
-            self.map_matrix[old_y][old_x] = '[red].[/]'
-            self.map_matrix[new_y_pos][new_x_pos] = '[red]E[/]'
-            self.game_over()
-        elif '.' not in self.map_matrix[new_y_pos][new_x_pos]:
-            enemy_obj.x_pos, enemy_obj.y_pos = old_x, old_y
-        ## end
-        self.map_matrix[old_y][old_x] = '[red].[/]'
-        self.map_matrix[enemy_obj.y_pos][enemy_obj.x_pos] = '[red]E[/]'
+    def draw_enemy(self, enemies_obj):
+        for enemy in enemies_obj:
+            if not enemy[1]:
+                while True:
+                    x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1)
+                    if (y_gen >= self.y_len - 3) and (x_gen <= 5): # this enemy can only generate 2 lines above or more and 6 columns right or more
+                        continue
+                    elif '.' not in self.map_matrix[y_gen][x_gen]:
+                        continue
+                    break
+                enemy[0].x_pos, enemy[0].y_pos = x_gen, y_gen
+                self.map_matrix[enemy[0].y_pos][enemy[0].x_pos] = '[red]E[/]'
+                enemy[1] = True
+            else:
+                old_x, old_y = enemy[0].x_pos, enemy[0].y_pos
+                new_positions_tuple = enemy[0].move()
+                new_x_pos, new_y_pos = new_positions_tuple
+                # move verifier
+                if 'P' in self.map_matrix[new_y_pos][new_x_pos]:
+                    self.map_matrix[old_y][old_x] = '[red].[/]'
+                    self.map_matrix[new_y_pos][new_x_pos] = '[red]E[/]'
+                    self.game_over()
+                elif '.' not in self.map_matrix[new_y_pos][new_x_pos]:
+                    enemy[0].x_pos, enemy[0].y_pos = old_x, old_y
+                ## end
+                self.map_matrix[old_y][old_x] = '[red].[/]'
+                self.map_matrix[enemy[0].y_pos][enemy[0].x_pos] = '[red]E[/]'
+            
+
+    def enemy_generation(self):
+        if self.level >= 1:
+            e1 = DrunkEnemy(self.x_len, self.y_len)
+            self.list_of_enemies.append([e1, False])
+        if self.level >= 5:
+            e2 = DrunkEnemy(self.x_len, self.y_len)
+            self.list_of_enemies.append([e2, False])
+        return self.list_of_enemies
         
-    def draw_entities(self, player_obj, enemy_obj=None):
+    def draw_entities(self, player_obj, enemies_obj):
         self.draw_player(player_obj)
-        self.draw_enemy(enemy_obj)
+        if enemies_obj:
+            self.draw_enemy(enemies_obj)
 
 
     def generate_chests(self, quantity) -> tuple | None:
@@ -233,13 +244,13 @@ class Map:
             if self.level == 0:
                 input('Press ENTER to START\nWASD to MOVE, E to EXIT\n> ')
                 p1 = Player(self.x_len, self.y_len)
-                e1 = None
+                enemies_obj = None
             elif self.level != 0:
                 p1.level_restart(self.x_len, self.y_len) 
-                e1 = DrunkEnemy(self.x_len, self.y_len)
+                enemies_obj = self.enemy_generation()
             self.generate(p1)
             while True:
-                self.draw_entities(player_obj=p1, enemy_obj=e1)
+                self.draw_entities(p1, enemies_obj)
                 self.clear_terminal(0)
                 self.header_text(p1)
                 if self.generate_next_level:
@@ -273,11 +284,7 @@ class Map:
         print(f'SCORE: {self.level}')
         input('ENTER to EXIT.')
         exit()
-
-
-
-        
-
+    
 def main():
     map1 = Map()
     map1.renderize()
