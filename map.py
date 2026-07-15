@@ -6,9 +6,8 @@ from player import Player
 from enemy import DrunkEnemy
 from copy import deepcopy
 import sys
-
-import sys
 import time
+
 timeout = 1
 if name == 'nt': 
     import msvcrt
@@ -45,6 +44,7 @@ class Map:
     generate_next_level : bool = field(default=False, init=False)
     grass_coordinates : list = field(default_factory=lambda:['Not generated'], init=False)
     enemy_has_generated : bool = field(default=False, init=False)
+    player_has_died : bool = field(default=False, init=False)
 
 
     def clear_terminal(self, mode):
@@ -72,11 +72,17 @@ class Map:
             continue
     
     def draw_player(self, player_obj):
+        if self.player_has_died:
+            self.game_over()
         cmd = get_key()
         old_x, old_y = player_obj.x_pos, player_obj.y_pos
         new_positions_tuple = player_obj.move(cmd)
         # move verifier
         new_x_pos, new_y_pos = new_positions_tuple
+        if 'E' in self.map_matrix[new_y_pos][new_x_pos]:
+            self.map_matrix[old_y][old_x] = '[blue].[/]'
+            self.player_has_died = True
+            return None
         if self.map_matrix[new_y_pos][new_x_pos] == '#':
             player_obj.x_pos, player_obj.y_pos = old_x, old_y
         ## end
@@ -102,9 +108,13 @@ class Map:
             return None
         old_x, old_y = enemy_obj.x_pos, enemy_obj.y_pos
         new_positions_tuple = enemy_obj.move()
-        # move verifier
         new_x_pos, new_y_pos = new_positions_tuple
-        if '.' not in self.map_matrix[new_y_pos][new_x_pos]:
+        # move verifier
+        if 'P' in self.map_matrix[new_y_pos][new_x_pos]:
+            self.map_matrix[old_y][old_x] = '[red].[/]'
+            self.map_matrix[new_y_pos][new_x_pos] = '[red]E[/]'
+            self.game_over()
+        elif '.' not in self.map_matrix[new_y_pos][new_x_pos]:
             enemy_obj.x_pos, enemy_obj.y_pos = old_x, old_y
         ## end
         self.map_matrix[old_y][old_x] = '[red].[/]'
@@ -238,9 +248,36 @@ class Map:
                     p1.has_key = False
                     self.enemy_has_generated = False
                     break
+                self.game_over()
                 self.show_map()
                 self.footer_text()
 
+    def game_over(self):
+        self.clear_terminal(1)
+        for _ in range(5):
+            self.show_map()
+            time.sleep(0.5)
+            self.clear_terminal(1)
+        for y in range(self.y_len):
+            for x in range(self.x_len):
+                self.clear_terminal(0)
+                self.show_map()
+                time.sleep(0.0001)
+                if randint(0, 100) <= 30:
+                    self.map_matrix[y][x] = '[red]%'
+                elif randint(0, 100) <= 50:
+                    self.map_matrix[y][x] = '&'
+                else:
+                    self.map_matrix[y][x] = '[blue]@'
+        time.sleep(2)
+        self.clear_terminal(1)
+        print(f'SCORE: {self.level}')
+        input('ENTER to EXIT.')
+        exit()
+
+
+
+        
 
 def main():
     map1 = Map()
