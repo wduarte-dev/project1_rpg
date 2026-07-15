@@ -248,7 +248,6 @@ class Map:
                     p1.has_key = False
                     self.enemy_has_generated = False
                     break
-                self.game_over()
                 self.show_map()
                 self.footer_text()
 
