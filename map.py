@@ -223,16 +223,17 @@ class Map:
             
     def header_text(self, player_obj):
         if player_obj.has_key:
+            self.clear_terminal(1)
             print('HAS KEY? ( ) NO [blue](x) YES[/]')
         else:
-            print('HAS KEY? [red](x) NO[/] ( ) YES')
+            if player_obj.can_next_level == 2:
+                print('HAS KEY? [red](x) NO[/] ( ) YES\n[red]FIND THE KEY FIRST.[/]'+' '*self.x_len)
+            else:
+                print('HAS KEY? [red](x) NO[/] ( ) YES')
         if player_obj.can_next_level == 1:
-            self.clear_terminal(1)
             print('[blue]Congrats.[/]\nPress ENTER to CONTINUE.\n> ', end='')
             input()
             self.generate_next_level = True
-        if player_obj.can_next_level == 2 and not player_obj.has_key:
-            print('[red]FIND THE KEY FIRST.[/]')
 
     def footer_text(self):
         print(f'LEVEL {self.level}')
