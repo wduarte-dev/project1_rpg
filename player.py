@@ -9,14 +9,13 @@ class Player(Entity):
         self.has_key : bool = False
         self.can_next_level : int = 0 # 0 -> cannot, 1 -> can, 2 -> tried and doesnt had the key
 
-    def level_restart(self, map_x_len, map_y_len):
-        self.map_x_len : int = map_x_len
-        self.map_y_len : int = map_y_len
+    def reset_stats_and_pos(self, *map_xy):
+        self.map_x_len : int = map_xy[0]
+        self.map_y_len : int = map_xy[1]
         self.x_pos : int = 0
-        self.y_pos : int = map_y_len - 1
+        self.y_pos : int = map_xy[1] - 1
         self.has_key : bool = False
         self.can_next_level : int = 0
-
 
     def move(self, command):
         old_x_pos, old_y_pos = self.x_pos, self.y_pos
@@ -36,4 +35,6 @@ class Player(Entity):
         elif [self.x_pos, self.y_pos] == [self.map_x_len - 1, 0] and not self.has_key:
             self.can_next_level = 2
             self.x_pos, self.y_pos = old_x_pos, old_y_pos
+
+    
 

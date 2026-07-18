@@ -5,33 +5,8 @@ from dataclasses import dataclass, field
 from player import Player
 from enemy import DrunkEnemy
 from copy import deepcopy
-import sys
+from terminal_utils import get_key, clear_terminal
 import time
-
-timeout = 1
-if name == 'nt': 
-    import msvcrt
-    def get_key(): #type:ignore
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            if msvcrt.kbhit(): #type:ignore
-                return msvcrt.getch().decode('utf-8', errors='ignore').lower() #type:ignore
-        return None 
-else: 
-    import tty, termios, select
-    def get_key():
-        fd = sys.stdin.fileno()
-        old_settings = termios.tcgetattr(fd)
-        try:
-            tty.setraw(fd)
-            rlist, _, _ = select.select([sys.stdin], [], [], timeout)
-            if rlist:
-                ch = sys.stdin.read(1)
-            else:
-                ch = None
-        finally:
-            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch.lower() if ch else None
 
 @dataclass
 class Map:
@@ -43,23 +18,17 @@ class Map:
     level : int = field(default=0, init=False)
     generate_next_level : bool = field(default=False, init=False)
     grass_coordinates : list = field(default_factory=lambda:['Not generated'], init=False)
-    player_has_died : bool = field(default=False, init=False)
+    game_over_state : bool = field(default=False, init=False)
     list_of_enemies : list = field(default_factory=lambda:[], init=False)
 
-
-    def clear_terminal(self, mode):
-        if mode == 0:
-            sys.stdout.write('\033[H')
-            sys.stdout.flush()
-        elif mode == 1:
-            system('cls' if name == 'nt' else 'clear')
-
-    def randomize_geometry(self):
-        self.list_of_enemies = [] # coloquei aqui para não instanciar os objetos dos inimigos com o x,y do mapa antigo, e sim do novo.
-        self.x_len, self.y_len = randint(15, 30), randint(10, 15)
+    def randomize_geometry(self, player_obj, enemies_obj) -> None:
+        gmm = self.level # lmm -> geometry map multiplier
+        self.x_len, self.y_len = randint(15 + gmm, 30 + gmm), randint(10 + gmm, 15 + gmm)
   
-    def generate(self, player_obj):
-        print('Loading...')
+    def generate(self, player_obj, enemies_obj):
+        print('[yellow]Loading...[/]')
+        player_obj.reset_stats_and_pos(self.x_len, self.y_len) 
+        enemies_obj = self.enemy_generation()
         while True:
             self.chests_generations_coordinates = []
             self.chest_with_key_coordinates = []
@@ -69,12 +38,11 @@ class Map:
             self.generate_obstacles_in_chests()
             if self.is_map_solvable(player_obj):
                 self.generate_grass()
+                self.enemy_generation()
                 break
             continue
     
     def draw_player(self, player_obj):
-        if self.player_has_died:
-            self.game_over()
         cmd = get_key()
         old_x, old_y = player_obj.x_pos, player_obj.y_pos
         new_positions_tuple = player_obj.move(cmd)
@@ -82,8 +50,7 @@ class Map:
         new_x_pos, new_y_pos = new_positions_tuple
         if 'E' in self.map_matrix[new_y_pos][new_x_pos]:
             self.map_matrix[old_y][old_x] = '[blue].[/]'
-            self.player_has_died = True
-            return None
+            self.game_over()
         if self.map_matrix[new_y_pos][new_x_pos] == '#':
             player_obj.x_pos, player_obj.y_pos = old_x, old_y
         ## end
@@ -92,12 +59,12 @@ class Map:
             player_obj.has_key = True
         self.map_matrix[player_obj.y_pos][player_obj.x_pos] = '[blue]P[/]'
 
-    def draw_enemy(self, enemies_obj):
-        for enemy in enemies_obj:
+    def draw_enemy(self, list_of_enemies):
+        for enemy in list_of_enemies:
             if not enemy[1]:
                 while True:
                     x_gen, y_gen = randint(0, self.x_len - 1), randint(0, self.y_len - 1)
-                    if (y_gen >= self.y_len - 3) and (x_gen <= 5): # this enemy can only generate 2 lines above or more and 6 columns right or more
+                    if (y_gen >= self.y_len - 3) and (x_gen <= 2): # this enemy can only generate 2 lines above or more and 2 columns right or more
                         continue
                     elif '.' not in self.map_matrix[y_gen][x_gen]:
                         continue
@@ -120,21 +87,18 @@ class Map:
                 self.map_matrix[old_y][old_x] = '[red].[/]'
                 self.map_matrix[enemy[0].y_pos][enemy[0].x_pos] = '[red]E[/]'
             
-
     def enemy_generation(self):
+        self.list_of_enemies = []
         if self.level >= 1:
             e1 = DrunkEnemy(self.x_len, self.y_len)
             self.list_of_enemies.append([e1, False])
-        if self.level >= 5:
+        if self.level >= 2:
             e2 = DrunkEnemy(self.x_len, self.y_len)
             self.list_of_enemies.append([e2, False])
-        return self.list_of_enemies
         
-    def draw_entities(self, player_obj, enemies_obj):
+    def draw_entities(self, player_obj):
         self.draw_player(player_obj)
-        if enemies_obj:
-            self.draw_enemy(enemies_obj)
-
+        self.draw_enemy(self.list_of_enemies)
 
     def generate_chests(self, quantity) -> tuple | None:
         for generation in range(quantity):
@@ -213,46 +177,43 @@ class Map:
 
     def show_map(self):
         map_str = deepcopy(self.map_matrix)
-        for y in range(self.y_len):
-            for x in range(self.x_len):
-                if map_str[y][x] == '.' and (x, y) in self.grass_coordinates:
-                    map_str[y][x] = ','
+        if not self.game_over_state:
+            for y in range(self.y_len):
+                for x in range(self.x_len):
+                    if map_str[y][x] == '.' and (x, y) in self.grass_coordinates:
+                        map_str[y][x] = ','
         map_str = [' '.join(y) for y in map_str]
         print('\n'.join(map_str))
 
             
     def header_text(self, player_obj):
         if player_obj.has_key:
-            self.clear_terminal(1)
             print('HAS KEY? ( ) NO [blue](x) YES[/]')
         else:
             if player_obj.can_next_level == 2:
-                print('HAS KEY? [red](x) NO[/] ( ) YES\n[red]FIND THE KEY FIRST.[/]'+' '*self.x_len)
+                print('HAS KEY? [red](x) NO[/] ( ) YES\n[red]FIND THE KEY FIRST.[/]' + '    '*self.x_len)
             else:
                 print('HAS KEY? [red](x) NO[/] ( ) YES')
         if player_obj.can_next_level == 1:
+            clear_terminal(1)
             print('[blue]Congrats.[/]\nPress ENTER to CONTINUE.\n> ', end='')
             input()
             self.generate_next_level = True
 
     def footer_text(self):
-        print(f'LEVEL {self.level}')
+        print(f'LEVEL {self.level}' + '    '*self.x_len + '\n' + '    '*self.x_len)
 
     def renderize(self):
+        p1 = Player(0, 0)
+        enemies_obj = None
+        input('Press ENTER to START\nWASD to MOVE, E to EXIT\n> ')
         while True:
-            system('cls' if name == 'nt' else 'clear')
-            self.randomize_geometry()
-            if self.level == 0:
-                input('Press ENTER to START\nWASD to MOVE, E to EXIT\n> ')
-                p1 = Player(self.x_len, self.y_len)
-                enemies_obj = None
-            elif self.level != 0:
-                p1.level_restart(self.x_len, self.y_len) 
-                enemies_obj = self.enemy_generation()
-            self.generate(p1)
+            clear_terminal(1)
+            self.randomize_geometry(p1, enemies_obj) # JÁ MUDO O X_MAP E Y_MAP DO PLAYER E INIMIGO AQUI
+            self.generate(p1, enemies_obj)
             while True:
-                self.draw_entities(p1, enemies_obj)
-                self.clear_terminal(0)
+                self.draw_entities(p1)
+                clear_terminal(0)
                 self.header_text(p1)
                 if self.generate_next_level:
                     self.level += 1
@@ -264,31 +225,23 @@ class Map:
                 self.footer_text()
 
     def game_over(self):
-        self.clear_terminal(1)
-        for _ in range(5):
+        self.game_over_state = True
+        clear_terminal(1)
+        for _ in range(10):
+            if _ % 2 == 0: self.map_matrix[0][0] = '[red].'
+            else: self.map_matrix[0][0] = '[blue].'
             self.show_map()
-            time.sleep(0.5)
-            self.clear_terminal(1)
-        for y in range(self.y_len):
-            for x in range(self.x_len):
-                self.clear_terminal(0)
-                self.show_map()
-                time.sleep(0.0001)
-                if randint(0, 100) <= 30:
-                    self.map_matrix[y][x] = '[red]%'
-                elif randint(0, 100) <= 50:
-                    self.map_matrix[y][x] = '&'
-                else:
-                    self.map_matrix[y][x] = '[blue]@'
+            time.sleep(0.10)
+            clear_terminal(1)
+        for _ in range (0, self.y_len):
+            if _ % 2 == 0: self.map_matrix[0][0] = '[blue].'
+            else: self.map_matrix[0][0] = '[red].'
+            self.map_matrix.pop(-1)
+            self.show_map()
+            time.sleep(0.10)
+            clear_terminal(1)
         time.sleep(2)
-        self.clear_terminal(1)
         print(f'SCORE: {self.level}')
-        input('ENTER to EXIT.')
+        time.sleep(2)
+        input('Press ENTER to EXIT.')
         exit()
-    
-def main():
-    map1 = Map()
-    map1.renderize()
-
-if __name__ == '__main__':
-    main()

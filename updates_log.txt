@@ -10,3 +10,10 @@ This enemy movement is random and move independent of the player actions (1 seco
 
 15/jul/2026
 - More enemies when passing levels (2 enemies limit for now)
+
+17/jul/2026
+- Improved game over for less lagging
+- Separated module -> terminal_utils.py for terminal manipulation functions (like clearing, getting user's keybind (getch))
+- Fixed clearing terminal bugs (old sometimes overwrite new in a incorrect way)
+- Added main.py 
+- Minor refatorations
