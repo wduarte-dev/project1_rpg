@@ -3,7 +3,7 @@ from rich import print
 from os import system, name
 from dataclasses import dataclass, field
 from player import Player
-from enemy import DrunkEnemy
+from enemy import DrunkEnemy, SmartEnemy
 from copy import deepcopy
 from terminal_utils import get_key, clear_terminal
 import time
@@ -24,18 +24,21 @@ class Map:
     def randomize_geometry(self, player_obj, enemies_obj) -> None:
         gmm = self.level # lmm -> geometry map multiplier
         self.x_len, self.y_len = randint(15 + gmm, 30 + gmm), randint(10 + gmm, 15 + gmm)
+    
+    def chest_generation(self):
+        self.chests_generations_coordinates = []
+        self.chest_with_key_coordinates = []
+        self.generate_chests(5)
+        self.generate_obstacles_in_chests()
   
     def generate(self, player_obj, enemies_obj):
         print('[yellow]Loading...[/]')
         player_obj.reset_stats_and_pos(self.x_len, self.y_len) 
         enemies_obj = self.enemy_generation()
         while True:
-            self.chests_generations_coordinates = []
-            self.chest_with_key_coordinates = []
             self.map_matrix = [['.' for _ in range(self.x_len)] for _ in range(self.y_len)]
             self.map_matrix[0][-1] = 'D'
-            self.generate_chests(5)
-            self.generate_obstacles_in_chests()
+            self.chest_generation()
             if self.is_map_solvable(player_obj):
                 self.generate_grass()
                 self.enemy_generation()
@@ -59,7 +62,7 @@ class Map:
             player_obj.has_key = True
         self.map_matrix[player_obj.y_pos][player_obj.x_pos] = '[blue]P[/]'
 
-    def draw_enemy(self, list_of_enemies):
+    def draw_enemy(self, list_of_enemies, player_obj):
         for enemy in list_of_enemies:
             if not enemy[1]:
                 while True:
@@ -70,35 +73,41 @@ class Map:
                         continue
                     break
                 enemy[0].x_pos, enemy[0].y_pos = x_gen, y_gen
-                self.map_matrix[enemy[0].y_pos][enemy[0].x_pos] = '[red]E[/]'
+                self.map_matrix[enemy[0].y_pos][enemy[0].x_pos] = enemy[2]
                 enemy[1] = True
             else:
                 old_x, old_y = enemy[0].x_pos, enemy[0].y_pos
-                new_positions_tuple = enemy[0].move()
+                new_positions_tuple = enemy[0].move((player_obj.x_pos, player_obj.y_pos))
                 new_x_pos, new_y_pos = new_positions_tuple
                 # move verifier
                 if 'P' in self.map_matrix[new_y_pos][new_x_pos]:
-                    self.map_matrix[old_y][old_x] = '[red].[/]'
-                    self.map_matrix[new_y_pos][new_x_pos] = '[red]E[/]'
+                    self.map_matrix[old_y][old_x] = enemy[3]
+                    self.map_matrix[new_y_pos][new_x_pos] = enemy[2]
                     self.game_over()
                 elif '.' not in self.map_matrix[new_y_pos][new_x_pos]:
                     enemy[0].x_pos, enemy[0].y_pos = old_x, old_y
                 ## end
-                self.map_matrix[old_y][old_x] = '[red].[/]'
-                self.map_matrix[enemy[0].y_pos][enemy[0].x_pos] = '[red]E[/]'
+                self.map_matrix[old_y][old_x] = enemy[3]
+                self.map_matrix[enemy[0].y_pos][enemy[0].x_pos] = enemy[2]
             
     def enemy_generation(self):
         self.list_of_enemies = []
         if self.level >= 1:
             e1 = DrunkEnemy(self.x_len, self.y_len)
-            self.list_of_enemies.append([e1, False])
-        if self.level >= 2:
+            self.list_of_enemies.append([e1, False, '[red]E[/]', '[red].[/]']) # -> [object, bool, appearance, path]
+        if self.level >= 3:
             e2 = DrunkEnemy(self.x_len, self.y_len)
-            self.list_of_enemies.append([e2, False])
+            self.list_of_enemies.append([e2, False, '[red]E[/]', '[red].[/]'])
+        if self.level >= 5:
+            e3 = SmartEnemy(self.x_len, self.y_len)
+            self.list_of_enemies.append([e3, False, '[purple]E[/]', '[purple].[/]'])
+        if self.level >= 10:
+            e4 = SmartEnemy(self.x_len, self.y_len)
+            self.list_of_enemies.append([e4, False, '[purple]E[/]', '[purple].[/]'])
         
     def draw_entities(self, player_obj):
         self.draw_player(player_obj)
-        self.draw_enemy(self.list_of_enemies)
+        self.draw_enemy(self.list_of_enemies, player_obj)
 
     def generate_chests(self, quantity) -> tuple | None:
         for generation in range(quantity):

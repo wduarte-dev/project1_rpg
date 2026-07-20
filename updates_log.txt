@@ -16,4 +16,8 @@ This enemy movement is random and move independent of the player actions (1 seco
 - Separated module -> terminal_utils.py for terminal manipulation functions (like clearing, getting user's keybind (getch))
 - Fixed clearing terminal bugs (old sometimes overwrite new in a incorrect way)
 - Added main.py 
-- Minor refatorations
+- Minor refactorations
+
+20/jul/2026
+- Minor refactorations
+- Added a Smart Enemy that follows the player by x and y position.
